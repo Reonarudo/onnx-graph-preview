@@ -1,7 +1,7 @@
 {
   "id": "onnx-graph-preview",
   "name": "ONNX Graph Preview",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.14.4",
   "description": "Draw ONNX models written as text in onnx code blocks as Netron-style graphs, with a button to flip each one between the graph and its source.",
   "author": "Leonardo Marques",
