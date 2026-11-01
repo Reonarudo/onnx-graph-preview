@@ -95,7 +95,7 @@ darkened, and hues are kept, so Netron's category colours stay recognisable (lay
 activations red, pooling green). Operator boxes and input pills turn dark, and each header's type
 text is set dark or light to read on its header. In a light theme graphs sit on a white card with
 Netron's exact colours. To keep every graph on a white card, turn off **Follow dark themes** in
-the plugin's settings. See `docs/adr/0002-dark-theme-colours.md`.
+the plugin's settings.
 
 ## Settings and commands
 
@@ -114,7 +114,7 @@ Rendering runs in a Web Worker inside Obsidian, built from
 [Eclipse Layout Kernel](https://github.com/kieler/elkjs) (elkjs) for placement and routing, and
 the renderer's drawing. Nothing is downloaded, installed or written to disk; the worker is
 embedded in `main.js`, which is why `main.js` is about 2 MB (about 530 KB gzipped), most of it
-ELK. See `docs/adr/0001-runtime-host.md`.
+ELK.
 
 The worker starts with the first graph drawn, so a vault without onnx blocks never loads Netron
 or ELK. Graphs also draw in embedded notes, hover previews, Canvas cards and exported PDFs (in
