@@ -30,11 +30,25 @@ declare module '#renderer/dist/render.js' {
     nodes?: number
   ): Promise<RenderResult>;
 }
-declare module '#renderer/vendor/netron/onnx.js';
-declare module '#renderer/vendor/netron/onnx-proto.js';
-declare module '#renderer/vendor/netron/protobuf.js';
-declare module '#renderer/vendor/netron/text.js';
-declare module '#renderer/vendor/netron/json.js';
+/** The vendored Netron modules: only their exports matter here, and the reader alone uses them. */
+declare module '#renderer/vendor/netron/onnx.js' {
+  export const ModelFactory: unknown;
+}
+declare module '#renderer/vendor/netron/onnx-proto.js' {
+  export const onnx: unknown;
+}
+declare module '#renderer/vendor/netron/protobuf.js' {
+  export const BinaryReader: unknown;
+  export const TextReader: unknown;
+}
+declare module '#renderer/vendor/netron/text.js' {
+  export const Decoder: unknown;
+  export const Reader: unknown;
+}
+declare module '#renderer/vendor/netron/json.js' {
+  export const TextReader: unknown;
+  export const BinaryReader: unknown;
+}
 declare module '#renderer/vendor/netron/onnx-metadata.json' {
   const text: string;
   export default text;

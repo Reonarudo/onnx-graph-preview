@@ -21,7 +21,7 @@ const ICON_CODE = `<svg ${LUCIDE} class="svg-icon lucide-code-2 onnx-icon-code">
 const ICON_GRAPH = `<svg ${LUCIDE} class="svg-icon lucide-network onnx-icon-graph">` +
   '<rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect>' +
   '<path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg>';
-const TOGGLE = `<button type="button" class="onnx-toggle clickable-icon" aria-pressed="false" aria-label="Show source">${ICON_CODE}${ICON_GRAPH}</button>`;
+const TOGGLE = `<button class="onnx-toggle clickable-icon" type="button" aria-pressed="false" aria-label="Show source">${ICON_CODE}${ICON_GRAPH}</button>`;
 
 // The DOM contract, asserted exactly once, here.
 test('every block is wrapped: toggle first, rendering slot, then the source <pre>', () => {
@@ -37,7 +37,7 @@ test('the error card sits in the rendering slot, with the source <pre> beside it
     '<div class="onnx-rendering"><div class="onnx-error" role="alert"><pre>no</pre></div></div>' +
     '<pre><code class="language-onnx">m\n</code></pre></div>');
   // A renderer that threw: main.ts shows this card in the slot.
-  const parts = buildFence(document, 'm\n', fenceKey('m\n'));
+  const parts = buildFence(document.createElement('div'), 'm\n', fenceKey('m\n'));
   showError(parts.rendering, failed('x'));
   assert.equal(rendering(parts.wrapper), '<div class="onnx-error" role="alert"><pre>The graph renderer failed: x</pre></div>');
 });
@@ -73,9 +73,9 @@ test('setView flips the wrapper, the button state and its name, and back', () =>
 
 
 test('the loading line sits in the rendering slot', () => {
-  const parts = buildFence(document, 'm', fenceKey('m'));
+  const parts = buildFence(document.createElement('div'), 'm', fenceKey('m'));
   showLoading(parts.rendering);
-  assert.equal(rendering(parts.wrapper), '<p class="onnx-loading" role="status">Laying out ONNX graph…</p>');
+  assert.equal(rendering(parts.wrapper), '<p class="onnx-loading" role="status">Laying out the graph…</p>');
 });
 
 test('alt, caption, align and class wrap the drawing, as text', () => {

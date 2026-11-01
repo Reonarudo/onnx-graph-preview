@@ -12,5 +12,7 @@ import metadata from '#renderer/vendor/netron/onnx-metadata.json';
 import type { Netron } from '#renderer/dist/netron.js';
 
 export async function loadNetron(): Promise<Netron> {
-  return { onnx, proto, protobuf, text, json, metadata } as unknown as Netron;
+  // The same object the library's loader returns: each module's namespace, and the metadata text.
+  const netron: Netron = { onnx, proto, protobuf, text, json, metadata };
+  return netron;
 }

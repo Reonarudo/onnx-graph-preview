@@ -16,7 +16,8 @@ import type { Reply, Request, Started } from '../protocol';
  * to exist, which sends it down the path it takes under Node; it is removed straight after.
  */
 function createElk(): InstanceType<typeof ELK> {
-  const global = globalThis as { document?: unknown };
+  // `self` is the worker's global object, where a free `document` is looked up.
+  const global = self as unknown as { document?: unknown };
   const had = 'document' in global;
   if (!had) global.document = {};
   try {
@@ -25,7 +26,6 @@ function createElk(): InstanceType<typeof ELK> {
     if (!had) delete global.document;
   }
 }
-
 
 interface Scope {
   onmessage: ((event: { data: Request }) => void) | null;

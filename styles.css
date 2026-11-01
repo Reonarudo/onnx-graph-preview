@@ -25,6 +25,14 @@ body.theme-dark.onnx-follow-dark svg.onnx {
   color-scheme: dark;
 }
 
+/* An older Obsidian without `light-dark()`: the drawing keeps its original colours (src/theme.ts
+   leaves them as presentation attributes), so it keeps its white card too. */
+@supports not (color: light-dark(#000, #fff)) {
+  body.theme-dark.onnx-follow-dark svg.onnx {
+    background: #fff;
+  }
+}
+
 .onnx-figure {
   margin: 1em 0;
 }

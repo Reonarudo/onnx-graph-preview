@@ -5,7 +5,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
-import { bundleWorker } from '../scripts/worker-bundle.mjs';
+import { bundleWorker, elkPath, rendererDir } from '../scripts/worker-bundle.mjs';
 import { createHost, type Host, type WorkerLike } from '../src/host';
 import { describe } from '../src/fence';
 import { DARK_PAGE, DARK_TEXT, LINE_CONTRAST, TEXT_CONTRAST, contrast, parseColor, type Rgb } from '../src/theme';
@@ -13,13 +13,16 @@ import { DENSE, fence } from './helpers';
 
 const PRELUDE = `
 const { parentPort } = require('node:worker_threads');
-globalThis.self = {
-  postMessage: (message) => parentPort.postMessage(message),
-  set onmessage(handler) {
+// As in a browser Worker, \`self\` is the global object.
+globalThis.self = globalThis;
+globalThis.postMessage = (message) => parentPort.postMessage(message);
+Object.defineProperty(globalThis, 'onmessage', {
+  configurable: true,
+  set(handler) {
     parentPort.removeAllListeners('message');
     if (handler) parentPort.on('message', (data) => handler({ data }));
   }
-};
+});
 `;
 
 const MODEL = 'g (float[N, 3, 32, 32] x) => (float[N, 10] y) {\n  c = Conv <kernel_shape = [3, 3]> (x, w)\n  r = Relu (c)\n  y = Gemm <transB = 1> (r, fc_w, fc_b)\n}';
@@ -45,6 +48,16 @@ before(async () => {
   host = createHost(spawn);
 });
 after(() => host.dispose());
+
+test('elkjs is the version the renderer depends on, so one copy serves both', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const read = async (path: string) => JSON.parse(await readFile(path, 'utf8')) as { version?: string; dependencies?: Record<string, string> };
+  const ours = await read('package.json');
+  const renderer = await read(`${rendererDir}/package.json`);
+  const installed = await read(elkPath.replace(/lib[\\/]elk\.bundled\.js$/, 'package.json'));
+  assert.equal(ours.dependencies!.elkjs, renderer.dependencies!.elkjs);
+  assert.equal(installed.version, renderer.dependencies!.elkjs);
+});
 
 test('the bundle carries no Node module imports and no file loading', () => {
   assert.doesNotMatch(source, /require\(["']node:|from["']node:|\bimport\(/);

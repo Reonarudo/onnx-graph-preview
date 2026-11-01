@@ -35,11 +35,13 @@ by the plugin, for all plugins.
 - `src/worker/netron.ts` replaces only the renderer's `loadNetron`: the five Netron modules are
   imported statically and the metadata JSON is embedded as text (esbuild's text loader), giving
   the reader the same object. Netron's code is untouched.
-- elkjs is resolved from the renderer package, whose dependency it is. `elk.bundled.js` contains
+- elkjs is resolved from the renderer package, whose dependency it is; the plugin lists it too, at
+  the exact version the renderer pins, so npm keeps one copy (a test checks they agree).
+  `elk.bundled.js` contains
   ELK's own worker script, which, seeing `self` and no `document`, claims `self.onmessage` as if
   it were a dedicated ELK worker and exports no in-thread worker, so `new ELK()` fails ("the ONNX
   layout engine could not start"; checked by bundling without the fix). `src/worker/entry.ts`
-  makes a `document` global exist only while it constructs ELK, which sends ELK down the branch
+  makes a `document` exist on the worker's global object (`self`) only while it constructs ELK, which sends ELK down the branch
   it takes in Node (the in-thread fake worker the library uses), and removes it straight after.
   elkjs itself ships unmodified, as the SPICE plugin does it.
 - `scripts/build.mjs` embeds the minified bundle in `main.js` as a string, started from a blob
@@ -50,8 +52,10 @@ by the plugin, for all plugins.
   4 MiB output), its `direction` and source-length checks before the worker sees a fence, its
   wording and its recovery (terminate on timeout or a discarded engine, fresh worker on the next
   render). Renders are queued, one at a time, on one worker.
-- The layout timeout is taken once per host, as the library takes it once per runtime; changing
-  the setting disposes the host and starts a fresh one with an empty cache.
+- The host, and with it the worker and its blob URL, is created by the first graph drawn, not
+  when the plugin loads. The layout timeout is taken once per host, as the library takes it once
+  per runtime; changing the setting disposes the host and its cache, and the next graph starts a
+  fresh one.
 - The renderer package stays untouched and is still the dependency, pinned to its release
   tarball; its version in `package.json` decides the reader, layout and drawing that ship.
 
@@ -68,7 +72,7 @@ by the plugin, for all plugins.
   new one is ready; blocks drawn in that quarter second wait for the new worker instead.
 - The plugin's worker entry must be kept in step with the renderer's `worker.ts` and
   `netron.ts` when the renderer changes, and the ELK construction with the elkjs version it brings;
-  `test/worker.test.ts` runs the embedded bundle (under a `self` prelude, which reproduces the
-  elkjs trap) against the real reader and layout.
+  `test/worker.test.ts` runs the embedded bundle (under a prelude that makes `self` the global
+  object, as in a browser Worker, which reproduces the elkjs trap) against the real reader and layout.
 - `isDesktopOnly` stays `true` until the plugin is tried on mobile, although nothing in it
   needs Node or Electron.

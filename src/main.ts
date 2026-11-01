@@ -61,8 +61,9 @@ function label(source: string): string {
 export default class OnnxPlugin extends Plugin {
   settings: Settings = DEFAULT_SETTINGS;
   private toggles!: ToggleStore;
+  /** The renderer, started by the first graph drawn (`renderer()`), not at load. */
   private host: Host | undefined;
-  private cache!: CachedRender;
+  private cache: CachedRender | undefined;
   private workerUrl: string | undefined;
   private readonly drawn = new Set<Drawn>();
   private readonly saveSoon = debounce(() => void this.persist(), 200, true);
@@ -72,8 +73,6 @@ export default class OnnxPlugin extends Plugin {
     this.settings = readSettings(data?.settings);
     this.toggles = new ToggleStore(data?.toggles, () => this.saveSoon());
 
-    this.workerUrl = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }));
-    this.startHost();
 
     this.registerMarkdownCodeBlockProcessor(WORD, (source, el, ctx) => this.process(source, el, ctx));
     this.addSettingTab(new OnnxSettingTab(this.app, this));
@@ -126,24 +125,35 @@ export default class OnnxPlugin extends Plugin {
     await this.saveData({ settings: this.settings, toggles: this.toggles.toJSON() });
   }
 
-  private startHost(): void {
-    const url = this.workerUrl!;
-    this.host = createHost(
+  /**
+   * The renderer, started on first use: a vault with no onnx blocks never starts the worker or
+   * loads Netron and ELK.
+   */
+  private renderer(): CachedRender {
+    if (this.cache) return this.cache;
+    this.workerUrl ??= URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }));
+    const url = this.workerUrl;
+    const host = createHost(
       () => new Worker(url, { name: 'onnx-graph-preview' }) as unknown as WorkerLike,
       { timeout: budget(this.settings) }
     );
-    const host = this.host;
+    this.host = host;
     this.cache = createCache((input) => host.render(input).then((result) => {
       // What the reader skipped or did not draw never reaches the note; heard once per fresh render.
       if (result.status === 'success') for (const note of result.notes) this.log(`${label(input.source)}: ${note}`);
       return result;
     }));
+    return this.cache;
   }
 
-  /** A fresh worker and an empty cache with the current settings, and every open note drawn again. */
+  /**
+   * Stop the worker and forget every result; the next graph starts a fresh worker with the
+   * current settings, and every open note is drawn again.
+   */
   private restart(): void {
     this.host?.dispose();
-    this.startHost();
+    this.host = undefined;
+    this.cache = undefined;
     this.rerender();
   }
 
@@ -162,8 +172,7 @@ export default class OnnxPlugin extends Plugin {
   }
 
   private async process(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> {
-    const parts = buildFence(el.ownerDocument, source, fenceKey(source));
-    el.append(parts.wrapper);
+    const parts = buildFence(el, source, fenceKey(source));
     const drawn: Drawn = {
       notePath: ctx.sourcePath,
       wrapper: parts.wrapper,
@@ -212,7 +221,7 @@ export default class OnnxPlugin extends Plugin {
       if (child.live && !parts.rendering.hasChildNodes()) showLoading(parts.rendering);
     }, LOADING_DELAY_MS);
     try {
-      const result = await this.cache.render(input);
+      const result = await this.renderer().render(input);
       if (child.live) showResult(parts.rendering, result, placement.attributes, source);
     } catch (error) {
       // The host throws only for programmer errors; the block shows it rather than staying blank.

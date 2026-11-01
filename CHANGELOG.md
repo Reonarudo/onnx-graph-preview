@@ -21,5 +21,9 @@ First version, ported from the VS Code extension
 - Rendering runs in a Web Worker inside Obsidian, from onnx-renderer 1.0.0's Netron reader, ELK
   layout and drawing; no Node install is needed.
 - Settings: layout timeout (changing it restarts the renderer and retries graphs that timed out),
-  following dark themes, debug logging.
+  following dark themes, debug logging; listed in Obsidian's settings search (1.13 and later).
+- The renderer starts with the first graph drawn, not when Obsidian starts.
+- Graphs draw in embedded notes, hover previews, Canvas and PDF export, and are built with
+  Obsidian's DOM helpers, so pop-out windows get their own elements.
+- On an Obsidian whose Chromium lacks `light-dark()`, graphs keep their white card.
 - Commands: restart the renderer; show every diagram in the current note.

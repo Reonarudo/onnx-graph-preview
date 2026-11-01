@@ -86,10 +86,10 @@ export function createHost(spawnWorker: () => WorkerLike, options: HostOptions =
     let abandon = (): void => {};
     const started = new Promise<Started>((resolve) => {
       abandon = () => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         resolve({ type: 'failed', reason: STOPPED_REASON });
       };
-      const timer = setTimeout(
+      const timer = window.setTimeout(
         () => resolve({ type: 'failed', reason: `the ONNX layout worker did not start within ${startupTimeout} ms` }),
         startupTimeout
       );
@@ -98,7 +98,7 @@ export function createHost(spawnWorker: () => WorkerLike, options: HostOptions =
           pending.get(data.id)?.(data);
           return;
         }
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         resolve(data);
       };
     });
@@ -130,13 +130,13 @@ export function createHost(spawnWorker: () => WorkerLike, options: HostOptions =
     const id = ++nextId;
     let timedOut = false;
     const reply = await new Promise<Reply | undefined>((resolve) => {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         timedOut = true;
         engine.pending.delete(id);
         resolve(undefined);
       }, timeout);
       engine.pending.set(id, (answer) => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         engine.pending.delete(id);
         resolve(answer);
       });

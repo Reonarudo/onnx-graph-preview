@@ -185,6 +185,10 @@ try {
     await page.keyboard.press('Escape');
     await sleep(200);
   }
+  await check('the renderer does not start until a diagram is drawn', async () => {
+    assert.equal(await page.evaluate((id) => !!app.plugins.plugins[id].host, manifest.id), false);
+  });
+
   await page.evaluate(async () => {
     const file = app.vault.getAbstractFileByPath('view-toggle.md');
     await app.workspace.getLeaf(false).openFile(file, { state: { mode: 'preview' } });
@@ -293,6 +297,27 @@ try {
     await page.screenshot({ path: join(shots, 'reading-dark-card.png') });
     await page.evaluate((id) => app.plugins.plugins[id].updateSettings({ followDarkTheme: true }), manifest.id);
     assert.equal((await look()).scheme, 'dark');
+  });
+
+  await check('without light-dark() support the original colours still draw', async () => {
+    // What a Chromium without light-dark() does: every declaration using it is dropped.
+    const fallback = await page.evaluate((base) => {
+      const svg = document.querySelectorAll(`.markdown-reading-view svg.${base}`)[0].cloneNode(true);
+      for (const element of [svg, ...svg.querySelectorAll('*')]) {
+        const style = element.getAttribute('style');
+        if (style) element.setAttribute('style', style.split(';').filter((part) => !part.includes('light-dark(')).join(';'));
+      }
+      document.body.append(svg);
+      const conv = [...svg.querySelectorAll('g.node')].find((g) => g.querySelector('text.type')?.textContent === 'Conv');
+      const out = {
+        header: getComputedStyle(conv.querySelector('.header')).fill, type: getComputedStyle(conv.querySelector('text.type')).fill,
+        row: getComputedStyle(conv.querySelector('text.attribute')).fill, box: getComputedStyle(conv.querySelector('.box')).fill,
+        wire: getComputedStyle(svg.querySelector('path.wire')).stroke
+      };
+      svg.remove();
+      return out;
+    }, BASE);
+    assert.deepEqual(fallback, { header: 'rgb(51, 85, 136)', type: 'rgb(255, 255, 255)', row: 'rgb(0, 0, 0)', box: 'rgb(255, 255, 255)', wire: 'rgb(0, 0, 0)' });
   });
 
   await page.screenshot({ path: join(shots, 'reading-dark.png') });
@@ -467,24 +492,137 @@ try {
     await page.screenshot({ path: join(shots, 'reading-light.png') });
   });
 
+  await check('a hover preview of a link to the note draws its graphs with their attributes', async () => {
+    await writeFile(join(vault, 'links.md'), '# Links\n\nSee [[view-toggle]] for graphs.\n');
+    await sleep(500);
+    await page.evaluate(async () => {
+      const preview = app.internalPlugins.plugins['page-preview'];
+      if (!preview.enabled) await preview.enable();
+      await app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath('links.md'), { state: { mode: 'preview' } });
+    });
+    await sleep(800);
+    const link = await page.evaluate(() => {
+      const a = app.workspace.activeLeaf.view.containerEl.querySelector('.markdown-reading-view a.internal-link');
+      a.scrollIntoView({ block: 'center' });
+      const r = a.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.move(link.x - 80, link.y);
+    await page.mouse.move(link.x, link.y, { steps: 5 });
+    // The popover lays out only the sections near its own small viewport, and these graphs are
+    // tall: scroll it, and collect each block once it is drawn.
+    const seen = new Map();
+    for (let i = 0; i < 60; i++) {
+      await sleep(250);
+      const now = await page.evaluate((base) => {
+        const scroller = document.querySelector('.hover-popover .markdown-preview-view');
+        const blocks = [...document.querySelectorAll(`.hover-popover .${base}-fence`)].map((fence) => ({
+          key: fence.getAttribute('data-fence-key'),
+          drawn: !!fence.querySelector(`.${base}-rendering svg.${base}, .${base}-error`),
+          caption: fence.querySelector('figcaption')?.textContent ?? null }));
+        if (scroller) scroller.scrollTop += 250;
+        return blocks;
+      }, BASE);
+      for (const block of now) if (block.drawn) seen.set(`${block.key}|${block.caption}`, block);
+      const blocks = [...seen.values()];
+      if (blocks.length >= 3 && blocks.some((block) => block.caption === 'Figure 1: a basic residual block')) break;
+    }
+    const blocks = [...seen.values()];
+    assert.ok(blocks.length >= 3, `${blocks.length} blocks drawn in the preview`);
+    assert.ok(blocks.some((block) => block.caption === 'Figure 1: a basic residual block'));
+    await page.mouse.move(5, 5);
+    await page.evaluate(async () => {
+      await app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath('view-toggle.md'), { state: { mode: 'preview' } });
+    });
+    await settle('reading');
+  });
+
+  await check('Export to PDF prints every graph, drawn, with its caption, in light colours and without the button', async () => {
+    const pdf = join(root, 'export.pdf');
+    // The native save dialog cannot be driven: answer it with a path. Obsidian prints from a window
+    // of its own (window.open, as for pop-outs); while it exists, record what it holds. The last
+    // record is what was printed.
+    await page.evaluate((pdf) => {
+      Object.defineProperty(require('@electron/remote').dialog, 'showSaveDialog', {
+        configurable: true, writable: true, value: async () => ({ canceled: false, filePath: pdf })
+      });
+      window.__printed = null;
+      window.__printWindow = null;
+      const open = window.open;
+      window.__restoreOpen = () => { window.open = open; };
+      window.open = (...args) => (window.__printWindow = open.apply(window, args));
+      window.__printWatch = setInterval(() => {
+        const print = window.__printWindow?.document;
+        if (!print || !print.querySelector('[class$="-fence"]')) return;
+        window.__printed = [...print.querySelectorAll('[class$="-fence"]')].map((fence) => {
+          const svg = fence.querySelector('svg:not(.svg-icon)');
+          const button = fence.querySelector('button');
+          const view = fence.ownerDocument.defaultView;
+          return { drawn: !!svg || !!fence.querySelector('[class$="-error"]'), caption: fence.querySelector('figcaption')?.textContent ?? null,
+            scheme: svg ? view.getComputedStyle(svg).colorScheme : null, button: button ? view.getComputedStyle(button).opacity : null };
+        });
+      }, 50);
+    }, pdf);
+    await page.evaluate(() => app.commands.executeCommandById('workspace:export-pdf'));
+    await sleep(800);
+    await page.evaluate(() => [...document.querySelectorAll('.modal-container button')].find((button) => /export/i.test(button.textContent)).click());
+    let written = false;
+    for (let i = 0; i < 60 && !written; i++) {
+      await sleep(250);
+      written = (await readFile(pdf).catch(() => null))?.length > 1000;
+    }
+    const printed = await page.evaluate(() => { clearInterval(window.__printWatch); return window.__printed; });
+    await page.evaluate(() => window.__restoreOpen());
+    assert.ok(written, 'the PDF was written');
+    assert.equal(printed?.length, FIXTURE.fences);
+    assert.ok(printed.every((block) => block.drawn), JSON.stringify(printed));
+    assert.ok(printed.some((block) => block.caption === 'Figure 1: a basic residual block'));
+    assert.ok(printed.every((block) => block.scheme === null || block.scheme === 'light'), 'printed in light colours');
+    assert.ok(printed.every((block) => block.button === null || block.button === '0'), 'no button on paper');
+  });
+
+  await check('settings come from definitions, so Obsidian lists them, and a change keeps the saved flips', async () => {
+    await click('reading', FIXTURE.broken);
+    const shown = await page.evaluate(async (id) => {
+      app.setting.open();
+      app.setting.openTabById(id);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      const names = [...app.setting.activeTab.containerEl.querySelectorAll('.setting-item-name')].map((el) => el.textContent);
+      const numberField = !!app.setting.activeTab.containerEl.querySelector('input[type="number"][min="0.5"][max="60"]');
+      const tab = app.setting.pluginTabs.find((one) => one.id === id);
+      await tab.setControlValue('debug', true);
+      app.setting.close();
+      return { names, numberField, debug: app.plugins.plugins[id].settings.debug, defined: tab.getSettingDefinitions().map((item) => item.control?.key) };
+    }, manifest.id);
+    assert.deepEqual(shown.names, ['Layout timeout', 'Follow dark themes', 'Debug logging']);
+    assert.equal(shown.numberField, true, 'drawn from the definitions: the layout timeout is a number field');
+    assert.deepEqual(shown.defined, ['layoutTimeout', 'followDarkTheme', 'debug']);
+    assert.equal(shown.debug, true);
+    const saved = await storedToggles();
+    assert.equal(saved?.length, 1, 'the flip made before the change is still saved');
+    await click('reading', FIXTURE.broken);
+    await page.evaluate((id) => app.plugins.plugins[id].updateSettings({ debug: false }), manifest.id);
+  });
+
   await check('a layout past the timeout is a timeout card; changing the setting restarts the worker and clears the cache', async () => {
     const run = await page.evaluate(async ({ id, dense, small }) => {
       const plugin = app.plugins.plugins[id];
       await plugin.updateSettings({ layoutTimeout: 0.5 });
+      // The restart left no renderer; the next graph starts one.
+      const cache = plugin.renderer();
       const host = plugin.host;
-      const cache = plugin.cache;
-      const timedOut = await plugin.cache.render({ source: dense });
-      const cached = await plugin.cache.render({ source: dense });
+      const timedOut = await cache.render({ source: dense });
+      const cached = await cache.render({ source: dense });
       let started = performance.now();
       await plugin.updateSettings({ layoutTimeout: 3 });
       const settingMs = Math.round(performance.now() - started);
       const fresh = { host: plugin.host !== host, cache: plugin.cache !== cache };
       const old = await host.render({ source: small });
       started = performance.now();
-      const first = await plugin.cache.render({ source: small + ' ' });
+      const first = await plugin.renderer().render({ source: small + ' ' });
       const startMs = Math.round(performance.now() - started);
       started = performance.now();
-      const second = await plugin.cache.render({ source: small + '  ' });
+      const second = await plugin.renderer().render({ source: small + '  ' });
       const renderMs = Math.round(performance.now() - started);
       return { timedOut, same: cached === timedOut, fresh, old, first: first.status, second: second.status, settingMs, startMs, renderMs };
     }, { id: manifest.id, dense: DENSE, small: SMALL });

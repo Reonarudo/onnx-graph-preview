@@ -116,6 +116,11 @@ the renderer's drawing. Nothing is downloaded, installed or written to disk; the
 embedded in `main.js`, which is why `main.js` is about 2 MB (about 530 KB gzipped), most of it
 ELK. See `docs/adr/0001-runtime-host.md`.
 
+The worker starts with the first graph drawn, so a vault without onnx blocks never loads Netron
+or ELK. Graphs also draw in embedded notes, hover previews, Canvas cards and exported PDFs (in
+light colours). Settings appear in Obsidian's settings search on 1.13 and later. On an Obsidian
+whose built-in Chromium predates `light-dark()`, graphs keep the white card in dark themes.
+
 Desktop only for now.
 
 ## Development
