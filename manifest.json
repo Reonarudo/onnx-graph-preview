@@ -6,5 +6,5 @@
   "description": "Draw ONNX models written as text in onnx code blocks as Netron-style graphs, with a button to flip each one between the graph and its source.",
   "author": "Leonardo Marques",
   "authorUrl": "https://github.com/Reonarudo",
-  "isDesktopOnly": true
+  "isDesktopOnly": false
 }

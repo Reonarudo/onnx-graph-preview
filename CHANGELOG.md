@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-01, pre-release)
 
 First version, ported from the VS Code extension
 [onnx-graph-preview](https://github.com/Reonarudo/onnx-markdown-preview) 0.3.0.
@@ -26,4 +26,6 @@ First version, ported from the VS Code extension
 - Graphs draw in embedded notes, hover previews, Canvas and PDF export, and are built with
   Obsidian's DOM helpers, so pop-out windows get their own elements.
 - On an Obsidian whose Chromium lacks `light-dark()`, graphs keep their white card.
+- Mobile: the plugin is no longer desktop-only; on touch devices the source button stays visible,
+  and on phones a wide graph keeps its natural size and scrolls sideways.
 - Commands: restart the renderer; show every diagram in the current note.

@@ -74,5 +74,7 @@ by the plugin, for all plugins.
   `netron.ts` when the renderer changes, and the ELK construction with the elkjs version it brings;
   `test/worker.test.ts` runs the embedded bundle (under a prelude that makes `self` the global
   object, as in a browser Worker, which reproduces the elkjs trap) against the real reader and layout.
-- `isDesktopOnly` stays `true` until the plugin is tried on mobile, although nothing in it
-  needs Node or Electron.
+- Nothing in the plugin needs Node or Electron, so it is not desktop-only. A blob-URL Web Worker
+  is available in the mobile apps' web views; checked under Obsidian's mobile emulation, to be
+  confirmed on devices through a BRAT pre-release. The 2 MB worker (mostly ELK) is parsed on the
+  first graph of a session, and ELK's memory use grows with the model; both weigh more on a phone.

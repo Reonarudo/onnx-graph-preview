@@ -604,6 +604,66 @@ try {
     await page.evaluate((id) => app.plugins.plugins[id].updateSettings({ debug: false }), manifest.id);
   });
 
+  await check('in Obsidian\'s phone emulation the plugin loads, graphs draw, and the button shows without hover and flips on a tap', async () => {
+    const reloaded = async () => {
+      for (let i = 0; i < 80; i++) {
+        await sleep(250);
+        const next = browser.contexts().flatMap((context) => context.pages()).find((p) => p.url().includes('index.html'));
+        if (next && await next.evaluate(() => window.app?.workspace?.layoutReady === true).catch(() => false)) return next;
+      }
+      throw new Error('Obsidian did not come back after switching emulation');
+    };
+    await page.evaluate(() => app.emulateMobile(true)).catch(() => {});
+    page = await reloaded();
+    await page.setViewportSize({ width: 430, height: 6000 });
+    const phone = await page.evaluate((id) => ({ mobile: document.body.classList.contains('is-mobile'), loaded: !!app.plugins.plugins[id] }), manifest.id);
+    assert.deepEqual(phone, { mobile: true, loaded: true });
+    await page.evaluate(async () => {
+      await app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath('view-toggle.md'), { state: { mode: 'preview' } });
+    });
+    let fences = [];
+    for (let i = 0; i < 60; i++) {
+      await sleep(250);
+      fences = await page.evaluate((base) => [...document.querySelectorAll(`.workspace-leaf.mod-active .markdown-reading-view .${base}-fence`)].map((fence) => ({
+        drawn: !!fence.querySelector(`.${base}-rendering svg.${base}, .${base}-error`),
+        button: getComputedStyle(fence.querySelector(`.${base}-toggle`)).opacity })), BASE);
+      if (fences.length === FIXTURE.fences && fences.every((fence) => fence.drawn)) break;
+    }
+    assert.equal(fences.length, FIXTURE.fences);
+    assert.ok(fences.every((fence) => fence.drawn && fence.button === '1'), JSON.stringify(fences));
+    await page.screenshot({ path: join(shots, 'phone.png') });
+    // A wide graph keeps its natural size on a phone and its slot scrolls sideways, so its labels
+    // stay legible; a narrow one is untouched.
+    const widths = await page.evaluate((base) => [...document.querySelectorAll(`.workspace-leaf.mod-active .markdown-reading-view .${base}-fence`)].map((fence) => {
+      const svg = fence.querySelector(`svg.${base}`);
+      const slot = fence.querySelector(`.${base}-rendering`);
+      return svg ? { natural: parseFloat(svg.getAttribute('width')), drawn: Math.round(svg.getBoundingClientRect().width), slot: slot.clientWidth, scrolls: slot.scrollWidth > slot.clientWidth } : null;
+    }), BASE);
+    const wide = widths.filter((one) => one && one.natural > one.slot);
+    assert.ok(wide.length >= 2, JSON.stringify(widths));
+    for (const one of wide) {
+      assert.ok(Math.abs(one.drawn - one.natural) <= 1, `drawn at natural width: ${JSON.stringify(one)}`);
+      assert.equal(one.scrolls, true);
+    }
+    const tap = async () => {
+      const box = await page.evaluate((base) => {
+        const button = document.querySelectorAll(`.workspace-leaf.mod-active .markdown-reading-view .${base}-toggle`)[0];
+        button.scrollIntoView({ block: 'center' });
+        const r = button.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, BASE);
+      await page.mouse.click(box.x, box.y);
+      await sleep(200);
+      return page.evaluate((base) => document.querySelectorAll(`.workspace-leaf.mod-active .markdown-reading-view .${base}-fence`)[0].getAttribute('data-view'), BASE);
+    };
+    assert.equal(await tap(), 'source');
+    assert.equal(await tap(), null);
+    await page.evaluate(() => app.emulateMobile(false)).catch(() => {});
+    page = await reloaded();
+    await page.setViewportSize({ width: 1200, height: 9000 });
+    assert.equal(await page.evaluate(() => document.body.classList.contains('is-mobile')), false);
+  });
+
   await check('a layout past the timeout is a timeout card; changing the setting restarts the worker and clears the cache', async () => {
     const run = await page.evaluate(async ({ id, dense, small }) => {
       const plugin = app.plugins.plugins[id];

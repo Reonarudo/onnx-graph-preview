@@ -121,7 +121,11 @@ or ELK. Graphs also draw in embedded notes, hover previews, Canvas cards and exp
 light colours). Settings appear in Obsidian's settings search on 1.13 and later. On an Obsidian
 whose built-in Chromium predates `light-dark()`, graphs keep the white card in dark themes.
 
-Desktop only for now.
+Works on desktop and on Obsidian's mobile apps, where the source button stays visible (there is
+no hover to reveal it). Nothing in the plugin needs Node or Electron. On a phone a graph wider than
+the screen keeps its natural size and scrolls sideways, so its labels stay legible. The first graph
+in a session loads Netron and ELK (about 2 MB of script) into the worker, which takes a moment longer on a phone;
+a large model also needs memory for ELK's layout, and the layout timeout applies as on desktop.
 
 ## Development
 

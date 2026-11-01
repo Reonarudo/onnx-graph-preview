@@ -62,7 +62,10 @@ body.theme-dark.onnx-follow-dark svg.onnx {
 
 /* Monospace and unwrapped where it matters: the caret sits under a column of the quoted line. */
 .onnx-error pre {
-  white-space: pre-wrap;
+  /* No wrapping: the caret line must stay under the column it marks, so a long line scrolls
+     sideways instead (narrow columns, phones). */
+  white-space: pre;
+  overflow-x: auto;
   margin: 0;
   background: none;
   padding: 0;
@@ -128,6 +131,27 @@ body.theme-dark.onnx-follow-dark svg.onnx {
 .onnx-fence:hover > .onnx-toggle,
 .onnx-fence > .onnx-toggle:focus-visible {
   opacity: 1;
+}
+
+/* On a phone a wide graph scaled down to the column would set Netron's 11px labels at a few
+   pixels: it keeps its natural size instead, and its slot scrolls sideways. */
+body.is-mobile .onnx-fence > .onnx-rendering {
+  overflow-x: auto;
+}
+
+body.is-mobile .onnx-fence > .onnx-rendering svg.onnx {
+  max-width: none;
+}
+
+/* Phones and tablets have no hover: the button stays visible there. */
+body.is-mobile .onnx-fence > .onnx-toggle {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .onnx-fence > .onnx-toggle {
+    opacity: 1;
+  }
 }
 
 .onnx-fence > .onnx-toggle:hover {
