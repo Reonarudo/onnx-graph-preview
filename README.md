@@ -118,7 +118,7 @@ ELK.
 
 The worker starts with the first graph drawn, so a vault without onnx blocks never loads Netron
 or ELK. Graphs also draw in embedded notes, hover previews, Canvas cards and exported PDFs (in
-light colours). Settings appear in Obsidian's settings search on 1.13 and later. On an Obsidian
+light colours). Settings appear in Obsidian's settings search. On an Obsidian
 whose built-in Chromium predates `light-dark()`, graphs keep the white card in dark themes.
 
 Works on desktop and on Obsidian's mobile apps, where the source button stays visible (there is
