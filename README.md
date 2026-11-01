@@ -154,3 +154,6 @@ elkjs version it brings, and run the tests.
 Models are read by [Netron](https://github.com/lutzroeder/netron) by Lutz Roeder, and laid out by
 the [Eclipse Layout Kernel](https://www.eclipse.org/elk/) through
 [elkjs](https://github.com/kieler/elkjs).
+
+The licenses of everything embedded in `main.js` (Netron and xmldom: MIT; elkjs: EPL-2.0) are listed
+in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and their full texts are at the top of `main.js`.
